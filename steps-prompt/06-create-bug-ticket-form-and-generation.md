@@ -32,11 +32,12 @@ Requirements:
 - Keep fields minimal: only Description must be present in UI; all other fields optional.
 - When the user clicks Generate:
   - Build a prompt that asks the LLM to output a bug ticket in **Markdown** with clear headings.
-  - Call the existing API `POST /api/llm/generate` with `{ model, prompt }`.
+  - Call the existing API `POST /api/llm/generate` with `{ provider, model, prompt }`.
   - Save the output using `createProjectOutput` including taskId and the user input.
   - Update the outputs list and show the rendered markdown.
 
 Error handling:
-- If Ollama is not running, show a clear error message in UI.
+- If provider is **Ollama** and it is not running, show a clear error message in UI.
+- If provider is **OpenAI mode** and the key is missing/invalid, show a clear error message in UI.
 
 Do not add more tasks yet.

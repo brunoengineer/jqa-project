@@ -9,7 +9,8 @@ Capture next tasks without implementing them yet.
   - Create Test Plan
   - Summarize PR
   - Release Notes
-- Model selection UI + per-project default model
+- Per-project default provider + model
+- Better API-key handling (do not persist by default; optional secure storage later)
 - Export documents (zip)
 - Optional: Electron packaging
 

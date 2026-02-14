@@ -8,14 +8,16 @@ A local-only app (runs on `localhost`) that lets a QA:
 - Create **Projects**
 - Inside a project, create **AI-generated Documents** using predefined **Tasks/Agents** (e.g., “Create Bug Ticket”)
 - Fill a **minimal form** (only a description field is expected; keep everything else optional)
-- Generate an **.md output** via **Ollama** and show it nicely in a dark UI (Confluence-ish markdown rendering)
+- Generate an **.md output** via **Ollama** or **OpenAI (API key)** and show it nicely in a dark UI (Confluence-ish markdown rendering)
 - Keep outputs **saved on disk** so reopening the app shows everything again
 - View outputs grouped by task and delete them
 
 ## Key assumptions (default choices)
 - **Runtime**: Web app in browser via **Next.js (TypeScript)** running locally (no Electron for now)
 - **Storage**: On-disk data folder in the repo (e.g., `qa-lobby/data/…`), storing JSON metadata + `.md` files
-- **LLM**: **Ollama** running locally (`http://localhost:11434`) with a selectable model name (string)
+- **LLM**: The app supports **two ways** to generate markdown:
+   - **Local Ollama** running at `http://localhost:11434` with a selectable model name (string)
+   - **OpenAI API-key mode** using a user-provided key + model (kept server-side; do not expose in client bundles)
 - **Single-user**: no auth, no multi-user sync
 
 If you want Electron/desktop packaging later, we’ll add it after v1.
@@ -31,6 +33,7 @@ If you want Electron/desktop packaging later, we’ll add it after v1.
 2. **Project detail**:
    - left: list of documents/outputs (grouped by task)
    - main: task picker + simple form + generated markdown preview
+   - include a minimal **AI settings** section (inline, not a new page): choose **Ollama model** OR configure **API-key mode**
 
 ## Copilot prompt (paste into Copilot Chat)
 
@@ -39,7 +42,7 @@ You are implementing a local-only QA Lobby in this workspace.
 Before coding, write a short v1 spec (1 page max) with:
 - data model (Project, Task, OutputDocument)
 - storage strategy on disk (folder structure and file formats)
-- API boundary: browser UI → Next.js route handlers → Ollama
+- API boundary: browser UI → Next.js route handlers → (Ollama | OpenAI)
 - page list + minimal UI interactions
 
 Constraints:

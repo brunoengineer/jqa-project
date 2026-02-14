@@ -26,7 +26,9 @@ Requirements:
 
 Also add a short README in `qa-lobby/README.md` with prerequisites:
 - Node.js LTS
-- Ollama installed + running
+- Either:
+	- Ollama installed + running, or
+	- an OpenAI API key configured (for the API-key LLM mode)
 
 Commands should be standard for Windows PowerShell.
 
