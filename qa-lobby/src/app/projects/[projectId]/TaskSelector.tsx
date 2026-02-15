@@ -21,7 +21,7 @@ export function TaskSelector(props: {
 					next.set("taskId", e.target.value);
 					router.push(`?${next.toString()}`);
 				}}
-				className="rounded-md border border-black/[.12] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/15 dark:focus:ring-white/20"
+				className="rounded-md border border-black/[.12] bg-background text-foreground px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/15 dark:focus:ring-white/20"
 			>
 				{props.tasks.map((t) => (
 					<option key={t.id} value={t.id}>

@@ -166,13 +166,10 @@ export default async function ProjectDetailPage({
 					</div>
 
 					<div id="preview" className="rounded-md border border-black/[.08] p-4 dark:border-white/10">
-						<h2 className="text-sm font-semibold">Preview</h2>
 						{selectedOutput ? (
-							<div className="mt-3">
-								<MarkdownRenderer markdown={selectedOutput.markdown} />
-							</div>
+							<MarkdownRenderer markdown={selectedOutput.markdown} />
 						) : (
-							<p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+							<p className="text-sm text-zinc-600 dark:text-zinc-400">
 								Select a document on the left to preview it.
 							</p>
 						)}

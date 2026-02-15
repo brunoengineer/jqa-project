@@ -15,6 +15,13 @@ Includes an **AI Prompts** page where you can edit the instruction template used
 		- Create `qa-lobby/.env.local` and set `OPENAI_API_KEY=...`
 		- (Optional) set `OPENAI_BASE_URL=...` if using a compatible proxy
 
+## Using OpenAI in the UI
+
+- Ensure `OPENAI_API_KEY` is set in `qa-lobby/.env.local`, then start/restart the dev server.
+- In any task form, set:
+	- **Provider**: `OpenAI`
+	- **Model**: an OpenAI model name (example: `gpt-4.1-mini`)
+
 ## Ollama quick check (optional)
 
 In a terminal:
@@ -43,7 +50,13 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+If PowerShell blocks `npm` scripts on your machine, use:
+
+```powershell
+npm.cmd run dev
+```
+
+Open http://127.0.0.1:3000
 
 ## Quick API smoke test (PowerShell)
 

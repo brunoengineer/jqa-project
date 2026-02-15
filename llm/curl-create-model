@@ -1,5 +1,0 @@
-curl http://localhost:11434/api/create -d '{
-  "from": "llama3.1",
-  "model": "alpaca",
-  "system": "You are Alpaca, a helpful AI assistant. You only answer with Emojis."
-}'
