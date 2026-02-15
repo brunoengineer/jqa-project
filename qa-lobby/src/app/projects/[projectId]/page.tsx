@@ -5,6 +5,8 @@ import { deleteProjectOutput, getProject, listProjectOutputs } from "@/server/st
 import { tasks } from "@/tasks/registry";
 import { TaskSelector } from "./TaskSelector";
 import { BugTicketForm } from "./tasks/BugTicketForm";
+import { CoverageAnalysisForm } from "./tasks/CoverageAnalysisForm";
+import { TextTaskForm } from "./tasks/TextTaskForm";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { DocumentSelectButton } from "./DocumentSelectButton";
 
@@ -146,6 +148,16 @@ export default async function ProjectDetailPage({
 					<div className="rounded-md border border-black/[.08] p-4 dark:border-white/10">
 						{selectedTaskId === "create-bug-ticket" ? (
 							<BugTicketForm projectId={projectId} />
+						) : selectedTaskId === "create-coverage-analysis" ? (
+							<CoverageAnalysisForm projectId={projectId} />
+						) : selectedTaskId === "create-task-ticket" ? (
+							<TextTaskForm projectId={projectId} taskId="create-task-ticket" />
+						) : selectedTaskId === "create-test-approach" ? (
+							<TextTaskForm projectId={projectId} taskId="create-test-approach" showTitle={false} />
+						) : selectedTaskId === "create-test-plan" ? (
+							<TextTaskForm projectId={projectId} taskId="create-test-plan" showTitle={false} />
+						) : selectedTaskId === "create-test-case" ? (
+							<TextTaskForm projectId={projectId} taskId="create-test-case" showTitle={false} />
 						) : (
 							<p className="text-sm text-zinc-600 dark:text-zinc-400">
 								Task UI not implemented yet.

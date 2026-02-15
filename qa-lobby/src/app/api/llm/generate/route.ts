@@ -10,6 +10,13 @@ type ReqBody = {
 	taskId?: unknown;
 };
 
+function unwrapSingleMarkdownFence(text: string): string {
+	const s = text.trim();
+	const m = s.match(/^```(?:md|markdown)?\s*\r?\n([\s\S]*?)\r?\n```\s*$/i);
+	if (!m) return text;
+	return m[1]?.trim() ?? "";
+}
+
 function isProvider(value: unknown): value is "ollama" | "openai" {
 	return value === "ollama" || value === "openai";
 }
@@ -37,7 +44,8 @@ export async function POST(req: Request) {
 			}
 		}
 
-		const markdown = await generateMarkdown({ provider, model, prompt: finalPrompt });
+		const markdownRaw = await generateMarkdown({ provider, model, prompt: finalPrompt });
+		const markdown = unwrapSingleMarkdownFence(markdownRaw);
 		return NextResponse.json({ markdown });
 	} catch (error) {
 		return NextResponse.json(

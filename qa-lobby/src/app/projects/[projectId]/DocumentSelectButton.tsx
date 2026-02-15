@@ -26,7 +26,10 @@ export function DocumentSelectButton(props: {
 				// Use auto (no smooth animation) to keep UX minimal.
 				setTimeout(() => {
 					const el = document.getElementById("preview");
-					el?.scrollIntoView({ block: "start", behavior: "auto" });
+					if (!el) return;
+					const rect = el.getBoundingClientRect();
+					const top = window.scrollY + rect.top;
+					window.scrollTo({ top, left: 0, behavior: "auto" });
 				}, 0);
 			}}
 		>

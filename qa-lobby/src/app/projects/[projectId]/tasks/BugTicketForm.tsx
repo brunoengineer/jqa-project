@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { useLlmSettings } from "./useLlmSettings";
+
 type Provider = "ollama" | "openai";
-
-const LS_PROVIDER_KEY = "qaLobby.llm.provider";
-const LS_MODEL_KEY = "qaLobby.llm.model";
-
-function isProvider(value: unknown): value is Provider {
-	return value === "ollama" || value === "openai";
-}
 
 function buildBugTicketPrompt(input: {
 	description: string;
@@ -63,9 +58,7 @@ function buildBugTicketPrompt(input: {
 export function BugTicketForm(props: { projectId: string }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-
-	const [provider, setProvider] = useState<Provider>("ollama");
-	const [model, setModel] = useState<string>("llama3.1");
+	const llm = useLlmSettings({ provider: "ollama", model: "llama3.1" });
 	const [title, setTitle] = useState<string>("");
 	const [description, setDescription] = useState<string>("");
 	const [stepsToReproduce, setStepsToReproduce] = useState<string>("");
@@ -74,43 +67,15 @@ export function BugTicketForm(props: { projectId: string }) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	function persistProvider(next: Provider) {
-		try {
-			window.localStorage.setItem(LS_PROVIDER_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
-
-	function persistModel(next: string) {
-		try {
-			window.localStorage.setItem(LS_MODEL_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
-
-	useEffect(() => {
-		try {
-			const savedProvider = window.localStorage.getItem(LS_PROVIDER_KEY);
-			const savedModel = window.localStorage.getItem(LS_MODEL_KEY);
-			if (isProvider(savedProvider)) setProvider(savedProvider);
-			if (typeof savedModel === "string" && savedModel.trim()) setModel(savedModel);
-		} catch {
-			// ignore
-		}
-	}, []);
-
 	const canSubmit = useMemo(() => {
-		return description.trim().length > 0 && model.trim().length > 0 && !isLoading;
-	}, [description, model, isLoading]);
+		return description.trim().length > 0 && llm.model.trim().length > 0 && !isLoading;
+	}, [description, llm.model, isLoading]);
 
 	async function onGenerate() {
 		setIsLoading(true);
 		setError(null);
 		try {
-			persistProvider(provider);
-			persistModel(model);
+			llm.persistNow();
 
 			const prompt = buildBugTicketPrompt({
 				title,
@@ -124,8 +89,8 @@ export function BugTicketForm(props: { projectId: string }) {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
-					provider,
-					model,
+					provider: llm.provider,
+					model: llm.model,
 					taskId: "create-bug-ticket",
 					prompt,
 				}),
@@ -167,8 +132,8 @@ export function BugTicketForm(props: { projectId: string }) {
 					taskId: "create-bug-ticket",
 					title: derivedTitle,
 					input: {
-						provider,
-						model,
+						provider: llm.provider,
+						model: llm.model,
 						title: derivedTitle,
 						description,
 						stepsToReproduce: stepsToReproduce || undefined,
@@ -214,12 +179,8 @@ export function BugTicketForm(props: { projectId: string }) {
 				<label className="flex items-center gap-2">
 					<span className="text-sm font-medium">Provider</span>
 					<select
-						value={provider}
-						onChange={(e) => {
-							const next = e.target.value as Provider;
-							setProvider(next);
-							persistProvider(next);
-						}}
+						value={llm.provider}
+						onChange={(e) => llm.setProvider(e.target.value as Provider)}
 						className="rounded-md border border-black/[.12] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/15 dark:focus:ring-white/20"
 					>
 						<option value="ollama">Ollama</option>
@@ -230,13 +191,9 @@ export function BugTicketForm(props: { projectId: string }) {
 				<label className="flex flex-1 items-center gap-2 min-w-[240px]">
 					<span className="text-sm font-medium">Model</span>
 					<input
-						value={model}
-						onChange={(e) => {
-							const next = e.target.value;
-							setModel(next);
-							persistModel(next);
-						}}
-						placeholder={provider === "ollama" ? "e.g. llama3.1" : "e.g. gpt-4.1-mini"}
+						value={llm.model}
+						onChange={(e) => llm.setModel(e.target.value)}
+						placeholder={llm.provider === "ollama" ? "e.g. llama3.1" : "e.g. gpt-4.1-mini"}
 						className="flex-1 rounded-md border border-black/[.12] bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/15 dark:focus:ring-white/20"
 					/>
 				</label>
