@@ -1,102 +1,31 @@
-# QA Lobby
+# QA Lobby — app
 
-Local-only QA assistant that generates Markdown documents for common QA tasks.
+Local-first QA agent workspace (Next.js). Full documentation: [../README.md](../README.md).
 
-Includes an **AI Prompts** page where you can edit the instruction template used for each task (saved locally).
-
-## Prerequisites
-
-- Node.js LTS
-- Choose one LLM mode:
-	- **Ollama (local)**
-		- Install Ollama and ensure it’s running at `http://localhost:11434`
-		- Have at least one model pulled (example: `ollama pull llama3.1`)
-	- **OpenAI (API key)**
-		- Create `qa-lobby/.env.local` and set `OPENAI_API_KEY=...`
-		- (Optional) set `OPENAI_BASE_URL=...` if using a compatible proxy
-
-## Using OpenAI in the UI
-
-- Ensure `OPENAI_API_KEY` is set in `qa-lobby/.env.local`, then start/restart the dev server.
-- In any task form, set:
-	- **Provider**: `OpenAI`
-	- **Model**: an OpenAI model name (example: `gpt-4.1-mini`)
-
-## Ollama quick check (optional)
-
-In a terminal:
-
-```powershell
-ollama --version
-ollama list
-ollama pull llama3.1
-```
-
-## Local data (important)
-
-- QA Lobby stores projects, generated documents, and saved prompt overrides in `qa-lobby/data/`.
-- This folder is **intentionally gitignored** and meant to be local-only.
-
-## AI Prompts
-
-- Default (versioned) prompt templates live in `qa-lobby/prompts/`.
-- When you edit/save prompts in the UI (`/prompts`), the saved versions override defaults and are written to `qa-lobby/data/prompts/`.
-
-## Run (Windows PowerShell)
+## Quick start (Windows PowerShell)
 
 ```powershell
 cd qa-lobby
 npm install
-npm run dev
+copy .env.example .env.local   # optional: only for Claude / Copilot / OpenAI
+npm run dev                    # or: npm.cmd run dev
 ```
 
-If PowerShell blocks `npm` scripts on your machine, use:
+Open http://127.0.0.1:3000.
 
-```powershell
-npm.cmd run dev
-```
+| Provider | Setup |
+|---|---|
+| Ollama | Install Ollama, `ollama pull llama3.1` (or any model) |
+| Claude (your plan) | Claude Code signed in with your Claude account (the VS Code extension is enough) |
+| Copilot (your plan) | `npx @github/copilot` → `/login` once, or `COPILOT_GITHUB_TOKEN` in `.env.local` |
+| Claude API (pay per use) | `ANTHROPIC_API_KEY` in `.env.local` |
+| OpenAI (pay per use) | `OPENAI_API_KEY` in `.env.local` |
 
-Open http://127.0.0.1:3000
+## Scripts
 
-## Quick API smoke test (PowerShell)
-
-With the dev server running (`npm run dev`), you can test generation directly:
-
-**Ollama**
-
-```powershell
-curl.exe -s http://localhost:3000/api/llm/generate `
-	-H "content-type: application/json" `
-	-d '{"provider":"ollama","model":"llama3.1","taskId":"create-bug-ticket","prompt":"Say hi in Markdown."}'
-```
-
-**OpenAI** (requires `OPENAI_API_KEY` in `.env.local`)
-
-```powershell
-curl.exe -s http://localhost:3000/api/llm/generate `
-	-H "content-type: application/json" `
-	-d '{"provider":"openai","model":"gpt-4.1-mini","taskId":"create-bug-ticket","prompt":"Say hi in Markdown."}'
-```
-
-If your machine doesn’t have `curl.exe`, you can use:
-
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/llm/generate -ContentType application/json -Body (
-	'{"provider":"ollama","model":"llama3.1","taskId":"create-bug-ticket","prompt":"Say hi in Markdown."}'
-)
-```
-
-## Troubleshooting
-
-- **Port already in use**: stop the other process using `http://localhost:3000`, or start Next on another port: `npm run dev -- -p 3001`
-- **Ollama not running**: start Ollama and re-check `http://localhost:11434` (and run `ollama list`)
-- **Ollama model not found**: pull it first (example: `ollama pull llama3.1`) or change the model field in the UI
-- **OpenAI 401/invalid key**: verify `qa-lobby/.env.local` contains a valid `OPENAI_API_KEY` and restart the dev server
-
-## Run (macOS/Linux)
-
-```bash
-cd qa-lobby
-npm install
-npm run dev
-```
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Dev server on `127.0.0.1:3000` |
+| `npm run build` / `npm run start` | Production build / serve |
+| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+| `npm run sync:agents` | Re-import agent prompts from `../../qa-agent-hub` (or `-- --hub <path>`) |
