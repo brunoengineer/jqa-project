@@ -23,8 +23,17 @@ async function readProjectsIndex(): Promise<ProjectsIndex> {
 	return { projects: existing.projects };
 }
 
-async function writeProjectsIndex(index: ProjectsIndex): Promise<void> {
-	await writeJsonFile(getProjectsIndexPath(), index);
+// Serializes read-modify-write cycles on projects.json so concurrent requests
+// (e.g. two deletes at once) can't overwrite each other's changes.
+let indexLock: Promise<unknown> = Promise.resolve();
+
+function updateProjectsIndex(mutate: (index: ProjectsIndex) => ProjectsIndex | null): Promise<void> {
+	const run = indexLock.then(async () => {
+		const next = mutate(await readProjectsIndex());
+		if (next) await writeJsonFile(getProjectsIndexPath(), next);
+	});
+	indexLock = run.catch(() => {});
+	return run;
 }
 
 export async function listProjects(): Promise<Project[]> {
@@ -58,9 +67,7 @@ export async function createProject(input: { name: string }): Promise<Project> {
 	await ensureDir(projectDir);
 	await writeJsonFile(getProjectMetaPath(project.id), project);
 
-	const index = await readProjectsIndex();
-	index.projects.push(project);
-	await writeProjectsIndex(index);
+	await updateProjectsIndex((index) => ({ projects: [...index.projects, project] }));
 
 	return project;
 }
@@ -76,9 +83,8 @@ export async function deleteProject(projectId: string): Promise<void> {
 		// ignore
 	}
 
-	const index = await readProjectsIndex();
-	const next = index.projects.filter((p) => p.id !== id);
-	if (next.length !== index.projects.length) {
-		await writeProjectsIndex({ projects: next });
-	}
+	await updateProjectsIndex((index) => {
+		const next = index.projects.filter((p) => p.id !== id);
+		return next.length !== index.projects.length ? { projects: next } : null;
+	});
 }

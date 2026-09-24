@@ -37,7 +37,10 @@ export async function writeJsonFile(
 ): Promise<void> {
 	await ensureDir(path.dirname(filePath));
 	const json = JSON.stringify(value, null, 2);
-	await fs.writeFile(filePath, json, "utf8");
+	// Write to a temp file and rename, so a crash or overlapping write can't leave a half-written file.
+	const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+	await fs.writeFile(tmpPath, json, "utf8");
+	await fs.rename(tmpPath, filePath);
 }
 
 export async function writeTextFile(filePath: string, content: string): Promise<void> {
