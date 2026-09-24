@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sync:agents": "node scripts/sync-agents.mjs"
+    "sync:agents": "node scripts/sync-agents.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@github/copilot-sdk": "^1.0.14",
     "@tailwindcss/typography": "^0.5.19",
     "next": "16.1.6",
     "react": "19.2.3",

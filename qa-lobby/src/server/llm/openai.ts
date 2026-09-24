@@ -1,3 +1,5 @@
+import type { ProviderModels } from "./types";
+
 type ResponsesApiResponse = {
 	output_text?: string;
 	output?: Array<{
@@ -25,8 +27,18 @@ function extractOutputText(payload: ResponsesApiResponse): string {
 	return parts.join("\n");
 }
 
+export async function listOpenAiModels(): Promise<ProviderModels> {
+	const configured = Boolean(process.env.OPENAI_API_KEY);
+	return {
+		available: configured,
+		models: ["gpt-4.1-mini", "gpt-4.1", "gpt-5"],
+		message: configured ? undefined : "Set OPENAI_API_KEY in .env.local",
+	};
+}
+
 export async function generateWithOpenAi(input: {
 	model: string;
+	system?: string;
 	prompt: string;
 }): Promise<string> {
 	const apiKey = process.env.OPENAI_API_KEY;
@@ -47,6 +59,7 @@ export async function generateWithOpenAi(input: {
 		},
 		body: JSON.stringify({
 			model: input.model,
+			...(input.system ? { instructions: input.system } : {}),
 			input: input.prompt,
 		}),
 	});
