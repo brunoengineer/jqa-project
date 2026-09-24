@@ -8,6 +8,7 @@ import {
 	getProjectOutputsDir,
 } from "./paths";
 import type { OutputDocument, OutputMetadata } from "./types";
+import { resolveTaskId } from "@/tasks/registry";
 
 export async function listProjectOutputs(
 	projectId: string,
@@ -41,10 +42,19 @@ export async function listProjectOutputs(
 			continue;
 		}
 
-		outputs.push({ ...meta, markdown });
+		outputs.push({ ...meta, taskId: resolveTaskId(meta.taskId), markdown });
 	}
 
 	return outputs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function countProjectOutputs(projectId: string): Promise<number> {
+	try {
+		const files = await fs.readdir(getProjectOutputsDir(projectId));
+		return files.filter((f) => f.endsWith(".md")).length;
+	} catch {
+		return 0;
+	}
 }
 
 export async function createProjectOutput(input: {

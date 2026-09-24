@@ -12,6 +12,8 @@ export type PromptRecord = {
 	taskId: string;
 	taskName: string;
 	taskDescription: string;
+	code: string;
+	category: string;
 	content: string;
 	source: PromptSource;
 };
@@ -42,6 +44,8 @@ export async function listPrompts(): Promise<PromptRecord[]> {
 			taskId: task.id,
 			taskName: task.name,
 			taskDescription: task.description,
+			code: task.code,
+			category: task.category,
 			content,
 			source,
 		});
