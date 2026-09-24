@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { deleteProjectOutput, getProject, listProjectOutputs } from "@/server/storage";
-import { tasks } from "@/tasks/registry";
-import { TaskSelector } from "./TaskSelector";
-import { BugTicketForm } from "./tasks/BugTicketForm";
-import { CoverageAnalysisForm } from "./tasks/CoverageAnalysisForm";
-import { TextTaskForm } from "./tasks/TextTaskForm";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
-import { DocumentSelectButton } from "./DocumentSelectButton";
+import { getProviderInfo } from "@/lib/providers";
+import { deleteProjectOutput, getProject, listProjectOutputs, type OutputDocument } from "@/server/storage";
+import { getTask, taskCategories, tasks } from "@/tasks/registry";
+
+import { DocumentActions } from "./DocumentActions";
+import { TaskForm } from "./tasks/TaskForm";
 
 function getOutputDisplayTitle(output: { title?: string; markdown: string }): string {
 	if (output.title?.trim()) return output.title.trim();
@@ -22,6 +23,22 @@ function getOutputDisplayTitle(output: { title?: string; markdown: string }): st
 	return firstText ? firstText.slice(0, 80) : "Untitled";
 }
 
+function getOutputModel(output: OutputDocument): string | null {
+	const input = output.input as { provider?: unknown; model?: unknown } | null;
+	if (!input || typeof input.model !== "string") return null;
+	const provider = getProviderInfo(typeof input.provider === "string" ? input.provider : undefined);
+	return provider ? `${provider.label} · ${input.model}` : input.model;
+}
+
+function formatDate(iso: string): string {
+	return new Date(iso).toLocaleString(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
 export default async function ProjectDetailPage({
 	params,
 	searchParams,
@@ -32,150 +49,168 @@ export default async function ProjectDetailPage({
 	const { projectId } = await params;
 	const { taskId, outputId } = await searchParams;
 	const project = await getProject(projectId);
-	const outputs = await listProjectOutputs(projectId);
+	if (!project) notFound();
 
-	const selectedTaskId =
-		tasks.find((t) => t.id === taskId)?.id ?? tasks[0]?.id ?? "";
-	const selectedOutput = outputId
-		? outputs.find((o) => o.id === outputId) ?? null
-		: null;
+	const outputs = await listProjectOutputs(projectId);
+	const selectedOutput = outputId ? (outputs.find((o) => o.id === outputId) ?? null) : null;
+	const task = getTask(selectedOutput?.taskId ?? taskId) ?? tasks[0];
+	const taskOutputs = outputs.filter((o) => o.taskId === task.id);
+
+	const countByTask = new Map<string, number>();
+	for (const o of outputs) countByTask.set(o.taskId, (countByTask.get(o.taskId) ?? 0) + 1);
 
 	async function deleteOutputAction(formData: FormData) {
 		"use server";
-		const outputId = String(formData.get("outputId") ?? "");
-		await deleteProjectOutput({ projectId, outputId });
+		const id = String(formData.get("outputId") ?? "");
+		const back = String(formData.get("taskId") ?? "");
+		await deleteProjectOutput({ projectId, outputId: id });
 		revalidatePath(`/projects/${projectId}`);
-	}
-
-	const outputsByTask = new Map<string, typeof outputs>();
-	for (const output of outputs) {
-		const list = outputsByTask.get(output.taskId) ?? [];
-		list.push(output);
-		outputsByTask.set(output.taskId, list);
+		redirect(`/projects/${projectId}?taskId=${encodeURIComponent(back)}`);
 	}
 
 	return (
-		<div className="space-y-6">
-			<div className="space-y-1">
-				<p className="text-xs text-zinc-600 dark:text-zinc-400">
-					<Link href="/projects" className="hover:underline">
+		<div className="space-y-8">
+			<div className="space-y-2">
+				<p className="eyebrow">
+					<Link href="/projects" className="transition hover:text-accent">
 						Projects
 					</Link>
-					<span> / </span>
-					<span>Project</span>
+					<span className="px-2 text-faint">/</span>
+					<span className="text-fg/80">{project.name}</span>
 				</p>
-				<h1 className="text-base font-semibold">
-					{project?.name ?? "Unknown project"}
-				</h1>
-				{project ? (
-					<p className="text-xs text-zinc-600 dark:text-zinc-400">
-						{project.id}
-					</p>
-				) : null}
+				<div className="flex flex-wrap items-end justify-between gap-3">
+					<h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+					<div className="flex gap-2">
+						<span className="chip">{outputs.length} docs</span>
+						<span className="chip">created {new Date(project.createdAt).toLocaleDateString()}</span>
+					</div>
+				</div>
 			</div>
 
-			<section className="grid gap-6 lg:grid-cols-[320px_1fr]">
-				<aside className="space-y-4">
-					<div className="rounded-md border border-black/[.08] p-4 dark:border-white/10">
-						<TaskSelector tasks={tasks} selectedTaskId={selectedTaskId} />
-						{selectedTaskId ? (
-							<p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-								{tasks.find((t) => t.id === selectedTaskId)?.description}
-							</p>
-						) : null}
-					</div>
-
-					<div className="space-y-3">
-						<h2 className="text-sm font-semibold">Documents</h2>
-						{outputs.length === 0 ? (
-							<p className="text-sm text-zinc-600 dark:text-zinc-400">
-								No documents yet.
-							</p>
-						) : (
-							tasks.map((task) => {
-								const taskOutputs = outputsByTask.get(task.id) ?? [];
-								if (taskOutputs.length === 0) return null;
-								return (
-									<div key={task.id} className="space-y-2">
-										<p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-											{task.name}
-										</p>
-										<ul className="space-y-2">
-											{taskOutputs.map((output) => (
-												<li
-													key={output.id}
-													className={`relative rounded-md border p-3 ${
-														selectedOutput?.id === output.id
-															? "border-black/30 dark:border-white/30"
-															: "border-black/[.08] dark:border-white/10"
+			<div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+				<aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
+					{taskCategories.map((category) => (
+						<div key={category} className="space-y-1.5">
+							<p className="eyebrow px-2">{category}</p>
+							<ul className="space-y-0.5">
+								{tasks
+									.filter((t) => t.category === category)
+									.map((t) => {
+										const active = t.id === task.id;
+										const count = countByTask.get(t.id) ?? 0;
+										return (
+											<li key={t.id}>
+												<Link
+													href={`?taskId=${t.id}`}
+													className={`group flex items-center gap-2.5 rounded-lg border px-2 py-1.5 text-sm transition ${
+														active
+															? "border-accent/30 bg-accent/[0.07] text-fg shadow-[0_0_20px_-10px] shadow-accent"
+															: "border-transparent text-muted hover:border-line hover:bg-surface hover:text-fg"
 													}`}
 												>
-													<div className="relative z-10 flex items-start justify-between gap-3">
-														<div className="min-w-0">
-															<DocumentSelectButton
-																taskId={task.id}
-																outputId={output.id}
-																className="block w-full truncate text-left text-sm font-medium underline-offset-2 hover:underline"
-															>
-																{getOutputDisplayTitle(output)}
-															</DocumentSelectButton>
-																<p className="text-xs text-zinc-600 dark:text-zinc-400">
-																	{new Date(output.createdAt).toLocaleString()}
-																</p>
-															</div>
-
-															<form action={deleteOutputAction} className="relative z-20">
-																<input type="hidden" name="outputId" value={output.id} />
-																<button
-																	type="submit"
-																	className="rounded-md border border-black/[.12] px-2 py-1 text-xs hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/10"
-																>
-																	Delete
-																</button>
-															</form>
-														</div>
-												</li>
-											))}
-										</ul>
-									</div>
-								);
-							})
-						)}
-					</div>
+													<span className={`code-chip ${active ? "" : "border-line bg-surface-2 text-muted group-hover:text-fg"}`}>
+														{t.code}
+													</span>
+													<span className="flex-1 truncate">{t.name}</span>
+													{count > 0 ? <span className="font-mono text-[11px] text-faint">{count}</span> : null}
+												</Link>
+											</li>
+										);
+									})}
+							</ul>
+						</div>
+					))}
 				</aside>
 
-				<section className="space-y-4">
-					<div className="rounded-md border border-black/[.08] p-4 dark:border-white/10">
-						{selectedTaskId === "create-bug-ticket" ? (
-							<BugTicketForm projectId={projectId} />
-						) : selectedTaskId === "create-coverage-analysis" ? (
-							<CoverageAnalysisForm projectId={projectId} />
-						) : selectedTaskId === "create-task-ticket" ? (
-							<TextTaskForm projectId={projectId} taskId="create-task-ticket" />
-						) : selectedTaskId === "create-test-approach" ? (
-							<TextTaskForm projectId={projectId} taskId="create-test-approach" showTitle={false} />
-						) : selectedTaskId === "create-test-plan" ? (
-							<TextTaskForm projectId={projectId} taskId="create-test-plan" showTitle={false} />
-						) : selectedTaskId === "create-test-case" ? (
-							<TextTaskForm projectId={projectId} taskId="create-test-case" showTitle={false} />
-						) : (
-							<p className="text-sm text-zinc-600 dark:text-zinc-400">
-								Task UI not implemented yet.
-							</p>
-						)}
-					</div>
+				<section className="min-w-0 space-y-6">
+					{selectedOutput ? (
+						<article className="card overflow-hidden">
+							<header className="space-y-3 border-b border-line px-5 py-4 sm:px-6">
+								<Link
+									href={`?taskId=${task.id}`}
+									className="font-mono text-[11px] text-muted transition hover:text-accent"
+								>
+									← New {task.name}
+								</Link>
+								<div className="flex flex-wrap items-start justify-between gap-3">
+									<div className="min-w-0 space-y-2">
+										<h2 className="text-lg font-semibold tracking-tight">
+											{getOutputDisplayTitle(selectedOutput)}
+										</h2>
+										<div className="flex flex-wrap gap-1.5">
+											<span className="code-chip">{task.code}</span>
+											{getOutputModel(selectedOutput) ? (
+												<span className="chip normal-case tracking-normal">{getOutputModel(selectedOutput)}</span>
+											) : null}
+											<span className="chip normal-case tracking-normal">{formatDate(selectedOutput.createdAt)}</span>
+										</div>
+									</div>
+									<div className="flex flex-wrap gap-2">
+										<DocumentActions
+											markdown={selectedOutput.markdown}
+											title={getOutputDisplayTitle(selectedOutput)}
+											createdAt={selectedOutput.createdAt}
+										/>
+										<form action={deleteOutputAction}>
+											<input type="hidden" name="outputId" value={selectedOutput.id} />
+											<input type="hidden" name="taskId" value={task.id} />
+											<ConfirmSubmitButton />
+										</form>
+									</div>
+								</div>
+							</header>
+							<div className="px-5 py-6 sm:px-8">
+								<MarkdownRenderer markdown={selectedOutput.markdown} />
+							</div>
+						</article>
+					) : (
+						<div className="card p-5 sm:p-6">
+							<div className="mb-5 flex items-start gap-3">
+								<span className="code-chip mt-0.5 h-8 min-w-12 text-[11px]">{task.code}</span>
+								<div className="space-y-1">
+									<p className="eyebrow">{task.category} agent</p>
+									<h2 className="text-xl font-semibold tracking-tight">{task.name}</h2>
+									<p className="text-sm text-muted">{task.description}</p>
+								</div>
+							</div>
+							<TaskForm key={task.id} projectId={projectId} task={task} />
+						</div>
+					)}
 
-					<div id="preview" className="rounded-md border border-black/[.08] p-4 dark:border-white/10">
-						{selectedOutput ? (
-							<MarkdownRenderer markdown={selectedOutput.markdown} />
-						) : (
-							<p className="text-sm text-zinc-600 dark:text-zinc-400">
-								Select a document on the left to preview it.
+					<div className="space-y-2">
+						<div className="flex items-center justify-between px-1">
+							<p className="eyebrow">History · {task.name}</p>
+							<span className="font-mono text-[11px] text-faint">{taskOutputs.length}</span>
+						</div>
+						{taskOutputs.length === 0 ? (
+							<p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-faint">
+								No {task.name} documents yet — generate one above.
 							</p>
+						) : (
+							<ul className="card divide-y divide-line">
+								{taskOutputs.map((o) => {
+									const active = o.id === selectedOutput?.id;
+									return (
+										<li key={o.id}>
+											<Link
+												href={`?taskId=${task.id}&outputId=${o.id}`}
+												className={`flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2 ${active ? "bg-accent/[0.06]" : ""}`}
+											>
+												<span className={`size-1.5 shrink-0 rounded-full ${active ? "bg-accent shadow-[0_0_8px] shadow-accent" : "bg-line-strong"}`} />
+												<span className="min-w-0 flex-1 truncate text-sm">{getOutputDisplayTitle(o)}</span>
+												<span className="hidden shrink-0 font-mono text-[11px] text-faint sm:inline">
+													{getOutputModel(o) ?? ""}
+												</span>
+												<span className="shrink-0 font-mono text-[11px] text-muted">{formatDate(o.createdAt)}</span>
+											</Link>
+										</li>
+									);
+								})}
+							</ul>
 						)}
 					</div>
 				</section>
-			</section>
+			</div>
 		</div>
 	);
 }

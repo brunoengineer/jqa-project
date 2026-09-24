@@ -2,32 +2,100 @@
 
 @plugin "@tailwindcss/typography";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+	--color-bg: #07080c;
+	--color-surface: rgb(255 255 255 / 0.03);
+	--color-surface-2: rgb(255 255 255 / 0.06);
+	--color-line: rgb(255 255 255 / 0.08);
+	--color-line-strong: rgb(255 255 255 / 0.16);
+	--color-fg: #e7e9ef;
+	--color-muted: #8a90a2;
+	--color-faint: #5b6072;
+	--color-accent: #22d3ee;
+	--color-accent-2: #a78bfa;
+	--color-ok: #34d399;
+	--color-warn: #fbbf24;
+	--color-danger: #f87171;
+	--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+	--font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  overflow-x: hidden;
+:root {
+	color-scheme: dark;
 }
 
 html {
 	overflow-x: hidden;
+	background: var(--color-bg);
+}
+
+body {
+	background-color: var(--color-bg);
+	background-image:
+		radial-gradient(60rem 30rem at 15% -10%, rgb(34 211 238 / 0.10), transparent 60%),
+		radial-gradient(50rem 28rem at 95% -5%, rgb(167 139 250 / 0.10), transparent 60%),
+		linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+		linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+	background-size: auto, auto, 44px 44px, 44px 44px;
+	background-attachment: fixed;
+	color: var(--color-fg);
+	font-family: var(--font-sans);
+	overflow-x: hidden;
+}
+
+::selection {
+	background: rgb(34 211 238 / 0.3);
+}
+
+@layer components {
+	.card {
+		@apply rounded-xl border border-line bg-surface backdrop-blur-sm;
+	}
+
+	.eyebrow {
+		@apply font-mono text-[11px] uppercase tracking-[0.18em] text-muted;
+	}
+
+	.field-label {
+		@apply font-mono text-[11px] uppercase tracking-[0.12em] text-muted;
+	}
+
+	.input {
+		@apply w-full rounded-lg border border-line bg-black/30 px-3 py-2 text-sm text-fg placeholder:text-faint outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20;
+	}
+
+	.btn-primary,
+	.btn-ghost,
+	.btn-danger {
+		@apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.btn-primary {
+		@apply bg-gradient-to-r from-accent to-accent-2 text-black shadow-[0_0_24px_-6px] shadow-accent/50 hover:brightness-110;
+	}
+
+	.btn-ghost {
+		@apply border border-line bg-surface text-fg hover:border-line-strong hover:bg-surface-2;
+	}
+
+	.btn-danger {
+		@apply border border-danger/30 bg-danger/10 text-danger hover:bg-danger/20;
+	}
+
+	.chip {
+		@apply inline-flex items-center gap-1.5 rounded-md border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted;
+	}
+
+	.code-chip {
+		@apply inline-flex h-6 min-w-10 items-center justify-center rounded-md border border-accent/25 bg-accent/10 px-1.5 font-mono text-[10px] font-semibold tracking-wider text-accent;
+	}
+}
+
+@keyframes scan {
+	0% { transform: translateX(-100%); }
+	100% { transform: translateX(300%); }
+}
+
+.scan-bar {
+	animation: scan 1.4s ease-in-out infinite;
 }

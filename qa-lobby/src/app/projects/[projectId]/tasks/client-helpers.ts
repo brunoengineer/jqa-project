@@ -1,7 +1,9 @@
 "use client";
 
+import type { LlmProvider } from "@/server/llm/types";
+
 export async function generateMarkdownViaApi(input: {
-	provider: "ollama" | "openai";
+	provider: LlmProvider;
 	model: string;
 	taskId: string;
 	prompt: string;

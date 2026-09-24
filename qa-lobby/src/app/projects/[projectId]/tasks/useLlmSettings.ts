@@ -1,65 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-export type Provider = "ollama" | "openai";
+import { getProviderInfo, providers } from "@/lib/providers";
+import { isLlmProvider, type LlmProvider } from "@/server/llm/types";
 
-const LS_PROVIDER_KEY = "qaLobby.llm.provider";
-const LS_MODEL_KEY = "qaLobby.llm.model";
+// Provider and per-provider model choices are remembered in localStorage.
+const PROVIDER_KEY = "qaLobby.llm.provider";
+const modelKey = (provider: LlmProvider) => `qaLobby.llm.model.${provider}`;
+const CHANGE_EVENT = "qaLobby:llm-settings";
 
-function isProvider(value: unknown): value is Provider {
-	return value === "ollama" || value === "openai";
+function read(key: string): string | null {
+	try {
+		return window.localStorage.getItem(key);
+	} catch {
+		return null;
+	}
 }
 
-export function useLlmSettings(defaults?: { provider?: Provider; model?: string }) {
-	const [provider, setProvider] = useState<Provider>(defaults?.provider ?? "ollama");
-	const [model, setModel] = useState<string>(defaults?.model ?? "llama3.1");
-
-	useEffect(() => {
-		try {
-			const savedProvider = window.localStorage.getItem(LS_PROVIDER_KEY);
-			const savedModel = window.localStorage.getItem(LS_MODEL_KEY);
-			if (isProvider(savedProvider)) setProvider(savedProvider);
-			if (typeof savedModel === "string" && savedModel.trim()) setModel(savedModel);
-		} catch {
-			// ignore
-		}
-	}, []);
-
-	function persistProvider(next: Provider) {
-		try {
-			window.localStorage.setItem(LS_PROVIDER_KEY, next);
-		} catch {
-			// ignore
-		}
+function write(key: string, value: string) {
+	try {
+		window.localStorage.setItem(key, value);
+	} catch {
+		// ignore (private mode, blocked storage)
 	}
+	window.dispatchEvent(new Event(CHANGE_EVENT));
+}
 
-	function persistModel(next: string) {
-		try {
-			window.localStorage.setItem(LS_MODEL_KEY, next);
-		} catch {
-			// ignore
-		}
-	}
+function subscribe(onChange: () => void) {
+	window.addEventListener(CHANGE_EVENT, onChange);
+	window.addEventListener("storage", onChange);
+	return () => {
+		window.removeEventListener(CHANGE_EVENT, onChange);
+		window.removeEventListener("storage", onChange);
+	};
+}
 
-	function onChangeProvider(next: Provider) {
-		setProvider(next);
-		persistProvider(next);
-	}
+const DEFAULT_PROVIDER: LlmProvider = providers[0].id;
 
-	function onChangeModel(next: string) {
-		setModel(next);
-		persistModel(next);
-	}
+function getProviderSnapshot(): LlmProvider {
+	const saved = read(PROVIDER_KEY);
+	return isLlmProvider(saved) ? saved : DEFAULT_PROVIDER;
+}
+
+export function useLlmSettings() {
+	const provider = useSyncExternalStore(subscribe, getProviderSnapshot, () => DEFAULT_PROVIDER);
+	const defaultModel = getProviderInfo(provider)?.defaultModel ?? "";
+	const model = useSyncExternalStore(
+		subscribe,
+		() => read(modelKey(provider)) ?? defaultModel,
+		() => defaultModel,
+	);
 
 	return {
 		provider,
 		model,
-		setProvider: onChangeProvider,
-		setModel: onChangeModel,
-		persistNow: () => {
-			persistProvider(provider);
-			persistModel(model);
-		},
+		setProvider: (next: LlmProvider) => write(PROVIDER_KEY, next),
+		setModel: (next: string) => write(modelKey(provider), next),
 	};
 }
