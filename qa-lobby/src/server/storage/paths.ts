@@ -31,3 +31,7 @@ export function getOutputMarkdownPath(
 ): string {
 	return path.join(getProjectOutputsDir(projectId), `${outputId}.md`);
 }
+
+export function getProjectContextPath(projectId: string): string {
+	return path.join(getProjectDir(projectId), "context.md");
+}

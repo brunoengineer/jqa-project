@@ -42,7 +42,7 @@ function Elapsed() {
 	return <span className="tabular-nums">{seconds}s</span>;
 }
 
-export function TaskForm(props: { projectId: string; task: TaskDefinition }) {
+export function TaskForm(props: { projectId: string; task: TaskDefinition; hasProjectContext: boolean }) {
 	const { task } = props;
 	const router = useRouter();
 	const llm = useLlmSettings();
@@ -51,6 +51,8 @@ export function TaskForm(props: { projectId: string; task: TaskDefinition }) {
 	const [files, setFiles] = useState<Record<string, AttachedFile[]>>({});
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [useProjectContext, setUseProjectContext] = useState(true);
+	const includeContext = props.hasProjectContext && useProjectContext;
 
 	const missingRequired = task.fields.some(
 		(f) => f.required && !values[f.id]?.trim() && !(files[f.id]?.length),
@@ -74,6 +76,7 @@ export function TaskForm(props: { projectId: string; task: TaskDefinition }) {
 				model: llm.model,
 				taskId: task.id,
 				prompt,
+				projectId: includeContext ? props.projectId : undefined,
 			});
 
 			const firstField = task.fields[0];
@@ -85,6 +88,7 @@ export function TaskForm(props: { projectId: string; task: TaskDefinition }) {
 				input: {
 					provider: llm.provider,
 					model: llm.model,
+					projectContext: includeContext,
 					fields: values,
 					files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, v.map((f) => f.name)])),
 				},
@@ -216,7 +220,21 @@ export function TaskForm(props: { projectId: string; task: TaskDefinition }) {
 			) : null}
 
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<p className="font-mono text-[11px] text-faint">Ctrl + Enter to generate</p>
+				<div className="flex flex-wrap items-center gap-4">
+					{props.hasProjectContext ? (
+						<label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+							<input
+								type="checkbox"
+								checked={useProjectContext}
+								onChange={(e) => setUseProjectContext(e.target.checked)}
+								disabled={isLoading}
+								className="accent-accent"
+							/>
+							Use project context
+						</label>
+					) : null}
+					<p className="font-mono text-[11px] text-faint">Ctrl + Enter to generate</p>
+				</div>
 				<button type="submit" disabled={!canSubmit} className="btn-primary">
 					{isLoading ? "Generating…" : `Generate ${task.name}`}
 					{!isLoading ? <span aria-hidden>→</span> : null}

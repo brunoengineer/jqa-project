@@ -5,10 +5,18 @@ import { revalidatePath } from "next/cache";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { getProviderInfo } from "@/lib/providers";
-import { deleteProjectOutput, getProject, listProjectOutputs, type OutputDocument } from "@/server/storage";
+import {
+	deleteProjectOutput,
+	getProject,
+	getProjectContext,
+	listProjectOutputs,
+	saveProjectContext,
+	type OutputDocument,
+} from "@/server/storage";
 import { getTask, taskCategories, tasks } from "@/tasks/registry";
 
 import { DocumentActions } from "./DocumentActions";
+import { ProjectContextPanel, type SaveContextState } from "./ProjectContextPanel";
 import { TaskForm } from "./tasks/TaskForm";
 
 function getOutputDisplayTitle(output: { title?: string; markdown: string }): string {
@@ -52,6 +60,7 @@ export default async function ProjectDetailPage({
 	if (!project) notFound();
 
 	const outputs = await listProjectOutputs(projectId);
+	const projectContext = await getProjectContext(projectId);
 	const selectedOutput = outputId ? (outputs.find((o) => o.id === outputId) ?? null) : null;
 	const task = getTask(selectedOutput?.taskId ?? taskId) ?? tasks[0];
 	const taskOutputs = outputs.filter((o) => o.taskId === task.id);
@@ -66,6 +75,17 @@ export default async function ProjectDetailPage({
 		await deleteProjectOutput({ projectId, outputId: id });
 		revalidatePath(`/projects/${projectId}`);
 		redirect(`/projects/${projectId}?taskId=${encodeURIComponent(back)}`);
+	}
+
+	async function saveContextAction(_prev: SaveContextState, formData: FormData): Promise<SaveContextState> {
+		"use server";
+		try {
+			await saveProjectContext(projectId, String(formData.get("context") ?? ""));
+		} catch (e) {
+			return { error: e instanceof Error ? e.message : "Could not save" };
+		}
+		revalidatePath(`/projects/${projectId}`);
+		return { ok: true };
 	}
 
 	return (
@@ -86,6 +106,8 @@ export default async function ProjectDetailPage({
 					</div>
 				</div>
 			</div>
+
+			<ProjectContextPanel initialContext={projectContext} saveAction={saveContextAction} />
 
 			<div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
 				<aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
@@ -173,7 +195,12 @@ export default async function ProjectDetailPage({
 									<p className="text-sm text-muted">{task.description}</p>
 								</div>
 							</div>
-							<TaskForm key={task.id} projectId={projectId} task={task} />
+							<TaskForm
+								key={task.id}
+								projectId={projectId}
+								task={task}
+								hasProjectContext={projectContext.trim().length > 0}
+							/>
 						</div>
 					)}
 

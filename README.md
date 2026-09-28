@@ -34,6 +34,7 @@ The app runs on `http://127.0.0.1:3000`. There are no accounts and no database: 
 - **LLM providers side by side:** Ollama (local, free, private), Claude (your Claude plan via Claude Code), GitHub Copilot (your Copilot plan), plus optional pay-per-use Claude API and OpenAI. Pick a provider and model for each generation; your choice is remembered per provider.
 - **Live provider status:** the form shows whether the provider is ready, lists the models you can use (the models you've pulled into Ollama, or the ones your Copilot plan includes), and warns if the selected model isn't available.
 - **Agent-specific forms** with required fields and **file attachments** for long inputs (requirements, logs, diffs, CSVs).
+- **Project context:** paste a short description of the project (product, domain terms, environments, conventions; up to 8,000 characters) on the project page, and every agent run in that project uses it as background. You can turn it off for a single run.
 - **Projects and history:** every generated document is saved to disk, grouped by agent, and can be reopened, copied as Markdown, downloaded as `.md`, or deleted.
 - **Editable agent prompts:** tune any agent's instructions on the **Agents** page; **Reset to default** brings back the synced version.
 - **Dark, modern UI** with a readable, Confluence-style Markdown viewer (tables, code blocks, checklists).
@@ -289,6 +290,7 @@ qa-lobby/data/
 ├── projects.json                      # index of projects
 ├── projects/<projectId>/
 │   ├── project.json
+│   ├── context.md                     # project context, added to every agent run
 │   └── outputs/
 │       ├── <outputId>.md              # the document
 │       └── <outputId>.json            # agent, title, provider/model, form input, createdAt
@@ -305,7 +307,7 @@ qa-lobby/data/
 
 | Method | Endpoint | Body / query | Response |
 |---|---|---|---|
-| `POST` | `/api/llm/generate` | `{ provider?, model, prompt, taskId? }` — provider: `ollama` \| `claude-code` \| `copilot` \| `claude` \| `openai` | `{ markdown }` |
+| `POST` | `/api/llm/generate` | `{ provider?, model, prompt, taskId?, projectId? }` — provider: `ollama` \| `claude-code` \| `copilot` \| `claude` \| `openai`; `projectId` puts that project's context before the prompt | `{ markdown }` |
 | `GET` | `/api/llm/models?provider=<id>` | — | `{ available, models, message? }` |
 | `GET` / `POST` | `/api/projects` | POST `{ name }` | `{ projects }` / `{ project }` |
 | `DELETE` | `/api/projects/{projectId}` | — | `{ ok: true }` |

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { withProjectContext } from "@/lib/project-context";
 import { generateMarkdown, isLlmProvider } from "@/server/llm";
 import { getPromptContent } from "@/server/prompts";
+import { getProject, getProjectContext } from "@/server/storage";
 import { resolveTaskId } from "@/tasks/registry";
 
 // Local models and long documents can take minutes.
@@ -12,6 +14,8 @@ type ReqBody = {
 	model?: unknown;
 	prompt?: unknown;
 	taskId?: unknown;
+	/** When set, the project's saved context is prepended to the prompt. */
+	projectId?: unknown;
 };
 
 function unwrapSingleMarkdownFence(text: string): string {
@@ -28,6 +32,7 @@ export async function POST(req: Request) {
 		const model = typeof body.model === "string" ? body.model.trim() : "";
 		const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
 		const taskId = typeof body.taskId === "string" ? resolveTaskId(body.taskId.trim()) : "";
+		const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
 
 		if (!model) {
 			return NextResponse.json({ error: "model is required" }, { status: 400 });
@@ -38,7 +43,12 @@ export async function POST(req: Request) {
 
 		const system = taskId ? (await getPromptContent(taskId)).content.trim() || undefined : undefined;
 
-		const markdownRaw = await generateMarkdown({ provider, model, system, prompt });
+		// Looked up through the projects index so an arbitrary id can't point outside data/.
+		const project = projectId ? await getProject(projectId) : null;
+		const context = project ? await getProjectContext(project.id) : "";
+		const fullPrompt = context.trim() ? withProjectContext(context, prompt) : prompt;
+
+		const markdownRaw = await generateMarkdown({ provider, model, system, prompt: fullPrompt });
 		const markdown = unwrapSingleMarkdownFence(markdownRaw);
 		return NextResponse.json({ markdown });
 	} catch (error) {

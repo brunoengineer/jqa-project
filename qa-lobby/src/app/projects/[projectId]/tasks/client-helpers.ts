@@ -7,6 +7,8 @@ export async function generateMarkdownViaApi(input: {
 	model: string;
 	taskId: string;
 	prompt: string;
+	/** Prepend this project's saved context on the server. */
+	projectId?: string;
 }): Promise<string> {
 	const res = await fetch("/api/llm/generate", {
 		method: "POST",
