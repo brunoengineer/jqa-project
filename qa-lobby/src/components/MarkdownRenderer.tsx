@@ -2,6 +2,8 @@ import type { Element, Root, RootContent } from "hast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { MermaidDiagram } from "./MermaidDiagram";
+
 // Models often put <br> inside table cells for multi-line steps. Render just that
 // tag as a line break; all other raw HTML stays escaped.
 function rehypeLineBreaks() {
@@ -15,6 +17,20 @@ function rehypeLineBreaks() {
 		}) as typeof node.children;
 	};
 	return (tree: Root) => visit(tree);
+}
+
+function textOf(node: Element | RootContent): string {
+	if (node.type === "text") return node.value;
+	return "children" in node ? node.children.map(textOf).join("") : "";
+}
+
+/** Returns the source of a ```mermaid fenced block, or null for any other <pre>. */
+function mermaidSource(pre: Element | undefined): string | null {
+	const code = pre?.children[0];
+	if (code?.type !== "element" || code.tagName !== "code") return null;
+	const classes = code.properties.className;
+	const isMermaid = Array.isArray(classes) && classes.some((c) => String(c).toLowerCase() === "language-mermaid");
+	return isMermaid ? textOf(code).trim() : null;
 }
 
 export function MarkdownRenderer(props: { markdown: string }) {
@@ -50,12 +66,16 @@ export function MarkdownRenderer(props: { markdown: string }) {
 							{...rest}
 						/>
 					),
-					pre: (p) => (
-						<pre
-							className="mb-4 overflow-auto rounded-lg border border-line bg-black/40 p-4 text-[13px] leading-6 [&_code]:border-0 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-fg/90"
-							{...p}
-						/>
-					),
+					pre: ({ node, ...p }) => {
+						const diagram = mermaidSource(node);
+						if (diagram) return <MermaidDiagram code={diagram} />;
+						return (
+							<pre
+								className="mb-4 overflow-auto rounded-lg border border-line bg-black/40 p-4 text-[13px] leading-6 [&_code]:border-0 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-fg/90"
+								{...p}
+							/>
+						);
+					},
 					a: (p) => <a className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" {...p} />,
 					table: (p) => (
 						<div className="mb-4 overflow-x-auto rounded-lg border border-line">
