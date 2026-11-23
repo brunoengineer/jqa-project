@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { listPrompts } from "@/server/prompts";
+import { listAgentsWithPrompts } from "@/server/agents";
+import { agentErrorResponse } from "@/server/agents/http";
 
 export async function GET() {
 	try {
-		const prompts = await listPrompts();
+		const prompts = await listAgentsWithPrompts();
 		return NextResponse.json({ prompts });
 	} catch (error) {
-		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Unknown error" },
-			{ status: 500 },
-		);
+		return agentErrorResponse(error);
 	}
 }

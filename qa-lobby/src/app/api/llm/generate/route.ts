@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 import { withProjectContext } from "@/lib/project-context";
 import { generateMarkdown, isLlmProvider } from "@/server/llm";
+import { getAgent } from "@/server/agents";
 import { getPromptContent } from "@/server/prompts";
 import { getProject, getProjectContext } from "@/server/storage";
-import { resolveTaskId } from "@/tasks/registry";
 
 // Local models and long documents can take minutes.
 export const maxDuration = 600;
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 		const provider = isLlmProvider(body.provider) ? body.provider : undefined;
 		const model = typeof body.model === "string" ? body.model.trim() : "";
 		const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-		const taskId = typeof body.taskId === "string" ? resolveTaskId(body.taskId.trim()) : "";
+		const taskId = typeof body.taskId === "string" ? body.taskId.trim() : "";
 		const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
 
 		if (!model) {
@@ -41,7 +41,12 @@ export async function POST(req: Request) {
 			return NextResponse.json({ error: "prompt is required" }, { status: 400 });
 		}
 
-		const system = taskId ? (await getPromptContent(taskId)).content.trim() || undefined : undefined;
+		// Resolves legacy ids and rejects agents that were deleted (or never existed).
+		const agent = taskId ? await getAgent(taskId) : null;
+		if (taskId && !agent) {
+			return NextResponse.json({ error: `Agent "${taskId}" not found — it may have been deleted` }, { status: 404 });
+		}
+		const system = agent ? (await getPromptContent(agent.id)).content.trim() || undefined : undefined;
 
 		// Looked up through the projects index so an arbitrary id can't point outside data/.
 		const project = projectId ? await getProject(projectId) : null;

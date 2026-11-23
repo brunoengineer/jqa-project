@@ -1,54 +1,57 @@
 import { NextResponse } from "next/server";
 
+import { AgentInputError, AgentNotFoundError, getAgent, validateInstructions } from "@/server/agents";
+import { agentErrorResponse } from "@/server/agents/http";
 import { deleteSavedPrompt, getPromptContent, savePrompt } from "@/server/prompts";
 
 type RouteCtx = { params: Promise<{ taskId: string }> };
 
 type PutBody = { content?: unknown };
 
+/** Only active agents have editable instructions; this also keeps arbitrary ids away from the file system. */
+async function requireAgent(ctx: RouteCtx) {
+	const { taskId } = await ctx.params;
+	const agent = await getAgent(taskId);
+	if (!agent) throw new AgentNotFoundError(taskId);
+	return agent;
+}
+
 export async function GET(_req: Request, ctx: RouteCtx) {
 	try {
-		const { taskId } = await ctx.params;
-		const prompt = await getPromptContent(taskId);
-		return NextResponse.json({ taskId, ...prompt });
+		const agent = await requireAgent(ctx);
+		const prompt = await getPromptContent(agent.id);
+		return NextResponse.json({ taskId: agent.id, ...prompt });
 	} catch (error) {
-		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Unknown error" },
-			{ status: 500 },
-		);
+		return agentErrorResponse(error);
 	}
 }
 
 export async function PUT(req: Request, ctx: RouteCtx) {
 	try {
-		const { taskId } = await ctx.params;
+		const agent = await requireAgent(ctx);
 		const body = (await req.json()) as PutBody;
-		const content = typeof body.content === "string" ? body.content : null;
-		if (content == null) {
+		if (typeof body.content !== "string") {
 			return NextResponse.json({ error: "content is required" }, { status: 400 });
 		}
-
-		await savePrompt(taskId, content);
+		// Custom agents have no default to fall back to, so their instructions can't be blank.
+		await savePrompt(agent.id, validateInstructions(body.content, !agent.builtIn));
 		return NextResponse.json({ ok: true });
 	} catch (error) {
-		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Unknown error" },
-			{ status: 500 },
-		);
+		return agentErrorResponse(error);
 	}
 }
 
-/** Remove the saved override so the task falls back to its default prompt. */
+/** Remove the saved override so a built-in agent falls back to its default prompt. */
 export async function DELETE(_req: Request, ctx: RouteCtx) {
 	try {
-		const { taskId } = await ctx.params;
-		await deleteSavedPrompt(taskId);
-		const prompt = await getPromptContent(taskId);
-		return NextResponse.json({ taskId, ...prompt });
+		const agent = await requireAgent(ctx);
+		if (!agent.builtIn) {
+			throw new AgentInputError("Custom agents have no default instructions to reset to");
+		}
+		await deleteSavedPrompt(agent.id);
+		const prompt = await getPromptContent(agent.id);
+		return NextResponse.json({ taskId: agent.id, ...prompt });
 	} catch (error) {
-		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Unknown error" },
-			{ status: 500 },
-		);
+		return agentErrorResponse(error);
 	}
 }

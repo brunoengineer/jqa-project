@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { countProjectOutputs, createProject, deleteProject, listProjects } from "@/server/storage";
-import { tasks } from "@/tasks/registry";
+import { listAgents } from "@/server/agents";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,7 @@ export default async function ProjectsPage() {
 	const projects = await listProjects();
 	const counts = await Promise.all(projects.map((p) => countProjectOutputs(p.id)));
 	const totalDocs = counts.reduce((a, b) => a + b, 0);
+	const agentCount = (await listAgents()).length;
 
 	async function createProjectAction(formData: FormData) {
 		"use server";
@@ -38,13 +39,13 @@ export default async function ProjectsPage() {
 						</span>
 					</h1>
 					<p className="max-w-xl text-muted">
-						Generate bug tickets, test plans, coverage analyses and more with {tasks.length} QA agents — using
+						Generate bug tickets, test plans, coverage analyses and more with {agentCount} QA agents — using
 						Ollama locally, or Claude and Copilot when you need more power.
 					</p>
 					<div className="flex flex-wrap gap-2 pt-1">
 						<span className="chip">{projects.length} projects</span>
 						<span className="chip">{totalDocs} documents</span>
-						<span className="chip">{tasks.length} agents</span>
+						<span className="chip">{agentCount} agents</span>
 					</div>
 				</div>
 

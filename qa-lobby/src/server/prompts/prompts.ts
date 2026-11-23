@@ -1,22 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { tasks } from "@/tasks/registry";
 import { ensureDir, fileExists, readTextFile, writeTextFile } from "@/server/storage/fs-helpers";
 
 import { getDefaultPromptPath, getPromptPath, getPromptsDir } from "./paths";
 
 export type PromptSource = "saved" | "default" | "empty";
-
-export type PromptRecord = {
-	taskId: string;
-	taskName: string;
-	taskDescription: string;
-	code: string;
-	category: string;
-	content: string;
-	source: PromptSource;
-};
 
 async function readPromptFile(filePath: string): Promise<string | null> {
 	const txt = await readTextFile(filePath);
@@ -34,23 +23,6 @@ export async function getPromptContent(taskId: string): Promise<{ content: strin
 	if (def != null) return { content: def, source: "default" };
 
 	return { content: "", source: "empty" };
-}
-
-export async function listPrompts(): Promise<PromptRecord[]> {
-	const results: PromptRecord[] = [];
-	for (const task of tasks) {
-		const { content, source } = await getPromptContent(task.id);
-		results.push({
-			taskId: task.id,
-			taskName: task.name,
-			taskDescription: task.description,
-			code: task.code,
-			category: task.category,
-			content,
-			source,
-		});
-	}
-	return results;
 }
 
 export async function savePrompt(taskId: string, content: string): Promise<void> {

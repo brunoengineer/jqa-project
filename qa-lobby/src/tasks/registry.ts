@@ -1,5 +1,9 @@
-// Agent definitions. Prompt templates live in prompts/<id>.md and are synced
-// from qa-agent-hub with `npm run sync:agents`.
+// Agent definitions shared by server and client code.
+//
+// Built-in agents are declared below; their prompt templates live in prompts/<id>.md and are synced
+// from qa-agent-hub with `npm run sync:agents`. Custom agents created in the UI are stored in
+// data/agents.json (see src/server/agents) and use the same TaskDefinition shape, so the rest of the
+// app treats both kinds the same way. Always read the active agent list through `listAgents()`.
 
 export type TaskField = {
 	id: string;
@@ -12,7 +16,12 @@ export type TaskField = {
 	allowFiles?: boolean;
 };
 
-export type TaskCategory = "Tickets" | "Test design" | "Analysis" | "Review";
+/** Built-in categories, in display order. Custom agents may use any other category name. */
+export const taskCategories = ["Tickets", "Test design", "Analysis", "Review"] as const;
+
+export type TaskCategory = string;
+
+export const DEFAULT_CUSTOM_CATEGORY = "Custom";
 
 export type TaskDefinition = {
 	id: string;
@@ -24,9 +33,31 @@ export type TaskDefinition = {
 	fields: TaskField[];
 };
 
-export const taskCategories: TaskCategory[] = ["Tickets", "Test design", "Analysis", "Review"];
+/** An agent as the app sees it: a built-in definition or one created in the UI. */
+export type AgentRecord = TaskDefinition & { builtIn: boolean };
 
-export const tasks: TaskDefinition[] = [
+/** Agent and field ids double as file names, so they are restricted to this pattern. */
+export const AGENT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function slugify(text: string, maxLength = 48): string {
+	return text
+		.normalize("NFKD")
+		.replace(/\p{M}/gu, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.slice(0, maxLength)
+		.replace(/^-+|-+$/g, "");
+}
+
+/** Built-in categories first (in their fixed order), then any custom categories alphabetically. */
+export function orderCategories(agents: Pick<TaskDefinition, "category">[]): string[] {
+	const present = new Set(agents.map((a) => a.category));
+	const builtIn = taskCategories.filter((c) => present.has(c));
+	const custom = [...present].filter((c) => !(taskCategories as readonly string[]).includes(c)).sort();
+	return [...builtIn, ...custom];
+}
+
+export const builtInTasks: TaskDefinition[] = [
 	{
 		id: "jira-bug",
 		name: "Jira Bug",
@@ -185,8 +216,11 @@ export function resolveTaskId(taskId: string): string {
 	return legacyTaskIds[taskId] ?? taskId;
 }
 
-export function getTask(taskId: string | undefined): TaskDefinition | undefined {
-	if (!taskId) return undefined;
+export function isLegacyTaskId(taskId: string): boolean {
+	return taskId in legacyTaskIds;
+}
+
+export function getBuiltInTask(taskId: string): TaskDefinition | undefined {
 	const id = resolveTaskId(taskId);
-	return tasks.find((t) => t.id === id);
+	return builtInTasks.find((t) => t.id === id);
 }

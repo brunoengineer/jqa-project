@@ -1,13 +1,20 @@
 import path from "node:path";
 
 import { getDataRoot } from "@/server/storage/paths";
+import { AGENT_ID_PATTERN } from "@/tasks/registry";
+
+/** Agent ids become file names, so reject anything that could escape the prompts directory. */
+function assertSafeId(taskId: string): string {
+	if (!AGENT_ID_PATTERN.test(taskId)) throw new Error(`Invalid agent id: ${JSON.stringify(taskId)}`);
+	return taskId;
+}
 
 export function getPromptsDir(): string {
 	return path.join(getDataRoot(), "prompts");
 }
 
 export function getPromptPath(taskId: string): string {
-	return path.join(getPromptsDir(), `${taskId}.md`);
+	return path.join(getPromptsDir(), `${assertSafeId(taskId)}.md`);
 }
 
 export function getDefaultPromptsDir(): string {
@@ -16,5 +23,5 @@ export function getDefaultPromptsDir(): string {
 }
 
 export function getDefaultPromptPath(taskId: string): string {
-	return path.join(getDefaultPromptsDir(), `${taskId}.md`);
+	return path.join(getDefaultPromptsDir(), `${assertSafeId(taskId)}.md`);
 }

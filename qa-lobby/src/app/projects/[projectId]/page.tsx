@@ -13,7 +13,8 @@ import {
 	saveProjectContext,
 	type OutputDocument,
 } from "@/server/storage";
-import { getTask, taskCategories, tasks } from "@/tasks/registry";
+import { listAgents } from "@/server/agents";
+import { getBuiltInTask, orderCategories, resolveTaskId, type TaskDefinition } from "@/tasks/registry";
 
 import { DocumentActions } from "./DocumentActions";
 import { ProjectContextPanel, type SaveContextState } from "./ProjectContextPanel";
@@ -36,6 +37,25 @@ function getOutputModel(output: OutputDocument): string | null {
 	if (!input || typeof input.model !== "string") return null;
 	const provider = getProviderInfo(typeof input.provider === "string" ? input.provider : undefined);
 	return provider ? `${provider.label} · ${input.model}` : input.model;
+}
+
+type ShownAgent = TaskDefinition & { removed: boolean };
+
+/** Stand-in for an agent that was deleted, so its documents stay browsable. */
+function removedAgent(taskId: string): ShownAgent {
+	const builtIn = getBuiltInTask(taskId);
+	return {
+		...(builtIn ?? {
+			id: taskId,
+			name: taskId,
+			description: "",
+			category: "Removed",
+			code: "DEL",
+			fields: [],
+		}),
+		description: "This agent was deleted. Its documents are kept here, but it can't generate new ones.",
+		removed: true,
+	};
 }
 
 function formatDate(iso: string): string {
@@ -62,11 +82,21 @@ export default async function ProjectDetailPage({
 	const outputs = await listProjectOutputs(projectId);
 	const projectContext = await getProjectContext(projectId);
 	const selectedOutput = outputId ? (outputs.find((o) => o.id === outputId) ?? null) : null;
-	const task = getTask(selectedOutput?.taskId ?? taskId) ?? tasks[0];
-	const taskOutputs = outputs.filter((o) => o.taskId === task.id);
+	const agents = await listAgents();
+	const categories = orderCategories(agents);
 
 	const countByTask = new Map<string, number>();
 	for (const o of outputs) countByTask.set(o.taskId, (countByTask.get(o.taskId) ?? 0) + 1);
+
+	// Documents whose agent was deleted are grouped under "Removed agents" instead of disappearing.
+	const activeIds = new Set(agents.map((a) => a.id));
+	const removedAgents = [...countByTask.keys()].filter((id) => !activeIds.has(id)).map(removedAgent);
+
+	const requestedId = resolveTaskId(selectedOutput?.taskId ?? taskId ?? "");
+	const task: ShownAgent | null =
+		[...agents.map((a) => ({ ...a, removed: false })), ...removedAgents].find((a) => a.id === requestedId) ??
+		(agents[0] ? { ...agents[0], removed: false } : null);
+	const taskOutputs = task ? outputs.filter((o) => o.taskId === task.id) : [];
 
 	async function deleteOutputAction(formData: FormData) {
 		"use server";
@@ -111,14 +141,27 @@ export default async function ProjectDetailPage({
 
 			<div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
 				<aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
-					{taskCategories.map((category) => (
+					{agents.length === 0 ? (
+						<p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-faint">
+							No agents yet.{" "}
+							<Link href="/prompts" className="text-accent hover:underline">
+								Create one
+							</Link>
+						</p>
+					) : null}
+					{[
+						...categories.map((category) => ({
+							category,
+							items: agents.filter((t) => t.category === category),
+						})),
+						...(removedAgents.length > 0 ? [{ category: "Removed agents", items: removedAgents }] : []),
+					].map(({ category, items }) => (
 						<div key={category} className="space-y-1.5">
 							<p className="eyebrow px-2">{category}</p>
 							<ul className="space-y-0.5">
-								{tasks
-									.filter((t) => t.category === category)
+								{items
 									.map((t) => {
-										const active = t.id === task.id;
+										const active = t.id === task?.id;
 										const count = countByTask.get(t.id) ?? 0;
 										return (
 											<li key={t.id}>
@@ -145,14 +188,22 @@ export default async function ProjectDetailPage({
 				</aside>
 
 				<section className="min-w-0 space-y-6">
-					{selectedOutput ? (
+					{!task ? (
+						<div className="card space-y-3 p-8 text-center">
+							<p className="font-mono text-sm text-muted">All agents have been deleted.</p>
+							<p className="text-sm text-faint">Create a new agent or restore a built-in one to generate documents.</p>
+							<Link href="/prompts" className="btn-primary">
+								Manage agents →
+							</Link>
+						</div>
+					) : selectedOutput ? (
 						<article className="card overflow-hidden">
 							<header className="space-y-3 border-b border-line px-5 py-4 sm:px-6">
 								<Link
 									href={`?taskId=${task.id}`}
 									className="font-mono text-[11px] text-muted transition hover:text-accent"
 								>
-									← New {task.name}
+									{task.removed ? `← ${task.name} documents` : `← New ${task.name}`}
 								</Link>
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div className="min-w-0 space-y-2">
@@ -190,20 +241,31 @@ export default async function ProjectDetailPage({
 							<div className="mb-5 flex items-start gap-3">
 								<span className="code-chip mt-0.5 h-8 min-w-12 text-[11px]">{task.code}</span>
 								<div className="space-y-1">
-									<p className="eyebrow">{task.category} agent</p>
+									<p className="eyebrow">{task.removed ? "Deleted agent" : `${task.category} agent`}</p>
 									<h2 className="text-xl font-semibold tracking-tight">{task.name}</h2>
 									<p className="text-sm text-muted">{task.description}</p>
 								</div>
 							</div>
-							<TaskForm
-								key={task.id}
-								projectId={projectId}
-								task={task}
-								hasProjectContext={projectContext.trim().length > 0}
-							/>
+							{task.removed ? (
+								<p className="rounded-lg border border-dashed border-line px-4 py-3 text-sm text-faint">
+									Select a document below to read it, or{" "}
+									<Link href="/prompts" className="text-accent hover:underline">
+										manage agents
+									</Link>{" "}
+									to restore or recreate this one.
+								</p>
+							) : (
+								<TaskForm
+									key={task.id}
+									projectId={projectId}
+									task={task}
+									hasProjectContext={projectContext.trim().length > 0}
+								/>
+							)}
 						</div>
 					)}
 
+					{task ? (
 					<div className="space-y-2">
 						<div className="flex items-center justify-between px-1">
 							<p className="eyebrow">History · {task.name}</p>
@@ -211,7 +273,7 @@ export default async function ProjectDetailPage({
 						</div>
 						{taskOutputs.length === 0 ? (
 							<p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-faint">
-								No {task.name} documents yet — generate one above.
+								No {task.name} documents yet{task.removed ? "." : " — generate one above."}
 							</p>
 						) : (
 							<ul className="card divide-y divide-line">
@@ -236,6 +298,7 @@ export default async function ProjectDetailPage({
 							</ul>
 						)}
 					</div>
+					) : null}
 				</section>
 			</div>
 		</div>

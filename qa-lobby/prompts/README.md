@@ -14,4 +14,5 @@ from `.claude/CLAUDE.md` it references, drops the chat-only sections ("If No Inp
 and appends QA Lobby's one-shot output rules.
 
 Edits made on the **Agents** page are saved to `data/prompts/<id>.md` and override these defaults until you
-click **Reset to default**.
+click **Reset to default**. Agents created on the Agents page are not in this folder: their definitions live in
+`data/agents.json` and their instructions in `data/prompts/<id>.md`.
