@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-desktop/
 /out/
 
 # qa-lobby local persistence (projects, outputs, saved prompts)

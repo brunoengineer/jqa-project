@@ -6,6 +6,8 @@
     "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
+    "desktop": "node scripts/run-desktop.mjs",
+    "desktop:shortcut": "node scripts/create-desktop-shortcut.mjs",
     "lint": "eslint",
     "sync:agents": "node scripts/sync-agents.mjs",
     "typecheck": "tsc --noEmit"
@@ -26,6 +28,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^45.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
