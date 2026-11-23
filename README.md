@@ -234,6 +234,7 @@ npm run desktop:shortcut -- --start-menu   # ...and in the Start menu too
 - **First launch takes about a minute:** it builds an optimized version of the app into `.next-desktop/`. Later launches take a few seconds, and it rebuilds automatically after the source code changes (for example after a `git pull`). Editing agent prompts or data never needs a rebuild.
 - **Runs alongside `npm run dev`:** the desktop app uses its own build folder and a free local port, so both can run at the same time.
 - **Closing the window stops everything:** the local server and any provider processes it started are shut down with it. Launching the icon again while it's open just brings the window to the front.
+- **Zoom** with **Ctrl + mouse wheel** (or touchpad pinch), **Ctrl + =** / **Ctrl + -**, and **Ctrl + 0** to reset. The level is remembered between launches (`qa-lobby/data/desktop.json`).
 - **Links** to other sites (Jira, GitHub, docs) open in your default browser. Press **Alt** to show the menu: reload, zoom, developer tools, and **Help → Open log file**.
 - **The icon points at this folder.** If you move the project or reinstall Node.js, run `npm run desktop:shortcut` again.
 

@@ -185,6 +185,48 @@ function setSplashMessage(message) {
 	void splash?.webContents.executeJavaScript(`document.getElementById("m").textContent = ${JSON.stringify(message)}`);
 }
 
+// ---------------------------------------------------------------------------
+// Zoom (Ctrl + mouse wheel, Ctrl +/-/0, View menu)
+//
+// Chromium remembers zoom per origin, and the app gets a new port on every launch, so the level
+// is kept in data/desktop.json instead. Levels are Chromium's: 0 = 100%, each step ≈ ×1.1.
+
+const SETTINGS_PATH = path.join(APP_ROOT, "data", "desktop.json");
+const ZOOM_STEP = 0.5;
+const ZOOM_MIN = -3; // ≈ 50%
+const ZOOM_MAX = 4.5; // ≈ 225%
+
+function readSettings() {
+	try {
+		return JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+	} catch {
+		return {};
+	}
+}
+
+function writeSettings(patch) {
+	try {
+		fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
+		fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ ...readSettings(), ...patch }, null, 2));
+	} catch (e) {
+		writeLog(`Could not save desktop settings: ${e instanceof Error ? e.message : e}`);
+	}
+}
+
+let zoomLevel = (() => {
+	const saved = Number(readSettings().zoomLevel);
+	return Number.isFinite(saved) ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, saved)) : 0;
+})();
+
+function setZoom(level) {
+	zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(level / ZOOM_STEP) * ZOOM_STEP));
+	mainWindow?.webContents.setZoomLevel(zoomLevel);
+	writeSettings({ zoomLevel });
+}
+
+const zoomIn = () => setZoom(zoomLevel + ZOOM_STEP);
+const zoomOut = () => setZoom(zoomLevel - ZOOM_STEP);
+
 function createMainWindow(origin) {
 	mainWindow = new BrowserWindow({
 		width: 1440,
@@ -212,6 +254,11 @@ function createMainWindow(origin) {
 		}
 	});
 
+	// Ctrl + mouse wheel (and touchpad pinch) is reported here; Electron doesn't zoom on its own.
+	mainWindow.webContents.on("zoom-changed", (_event, direction) => (direction === "in" ? zoomIn() : zoomOut()));
+	// Re-apply the saved level after every load, since each launch is a new origin.
+	mainWindow.webContents.on("did-finish-load", () => mainWindow?.webContents.setZoomLevel(zoomLevel));
+
 	mainWindow.once("ready-to-show", () => {
 		mainWindow?.show();
 		splash?.close();
@@ -233,9 +280,15 @@ function setMenu() {
 					{ role: "forceReload" },
 					{ role: "toggleDevTools" },
 					{ type: "separator" },
-					{ role: "resetZoom" },
-					{ role: "zoomIn" },
-					{ role: "zoomOut" },
+					// Custom items instead of the built-in zoom roles, so the level is saved between launches.
+					{ label: "Actual Size", accelerator: "CommandOrControl+0", click: () => setZoom(0) },
+					{ label: "Zoom In", accelerator: "CommandOrControl+=", click: zoomIn },
+					{ label: "Zoom Out", accelerator: "CommandOrControl+-", click: zoomOut },
+					// Same actions on Ctrl+Shift+= ("+") and the numeric keypad.
+					{ label: "Zoom In", accelerator: "CommandOrControl+Plus", click: zoomIn, visible: false, acceleratorWorksWhenHidden: true },
+					{ label: "Zoom In", accelerator: "CommandOrControl+numadd", click: zoomIn, visible: false, acceleratorWorksWhenHidden: true },
+					{ label: "Zoom Out", accelerator: "CommandOrControl+numsub", click: zoomOut, visible: false, acceleratorWorksWhenHidden: true },
+					{ label: "Actual Size", accelerator: "CommandOrControl+num0", click: () => setZoom(0), visible: false, acceleratorWorksWhenHidden: true },
 					{ type: "separator" },
 					{ role: "togglefullscreen" },
 				],
