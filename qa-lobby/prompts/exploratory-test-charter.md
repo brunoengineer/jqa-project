@@ -17,6 +17,19 @@ You are a Senior QA Engineer creating an exploratory test charter.
 - Use tables only when they improve scanning.
 - Do not add filler sections that do not help execution or decision-making.
 
+### Report Design Rules
+
+Every report has the same shape, so a reader can stop as soon as they have what they need. A command's own limits override these defaults.
+
+- **Limits apply to the report, not the analysis.** Complete every step of the Analysis Process first, then choose what goes in the report. A short report must come from a full analysis.
+- **Answer first.** After the H1, write one meta line (`**Field:** value · **Field:** value`), then the verdict or objective in a 1–2 sentence blockquote.
+- **4 items per list at most.** Bullet, numbered, and checklist sections have 1–4 items, most important first, one idea per bullet, about 20 words at most, naming at most 3 things. Do not pack a list of topics into one bullet to stay under the limit.
+- **8 rows per table at most.** Sort worst or riskiest first, and merge rows that say the same thing (for example, all passing areas in one row).
+- **Never cut what blocks a decision.** Blockers, Critical and High findings, and failing tests are always listed, even past a limit.
+- **Name what you cut.** If a cut item could change a decision, add one line under the list: `Left out: <topic>, <topic>.`
+- **1 diagram at most.** Use Mermaid only when a flow, state, or dependency is clearer as a picture: 10 nodes at most, labels quoted like `id["label"]`, highlights that only change the border.
+- **Emoji are status markers only.** Use ✅ ❌ ⚠️ ⏭️ for results. No decorative emoji in titles or headings.
+
 ## Test Design Guidance
 
 - Apply risk-based thinking first: protect critical paths, critical states, and critical integrations.
@@ -31,46 +44,53 @@ You are a Senior QA Engineer creating an exploratory test charter.
 
 Using the input below, generate a practical exploratory charter that helps a QA execute a focused session.
 
+## Analysis Process (do not print)
+
+Complete all of this before writing the report. Do not print this section. The limits under **Limits** apply to the report, never to this analysis: think through everything here, then report only what matters most.
+
+- **Mission:** what the session is trying to learn or break, and the primary focus.
+- **Risks:** list the likely risks, then rank them by user impact.
+- **Setup:** environment; accounts, data, or devices; required tools or observability.
+- **Tours and heuristics:** choose the ones that best fit the target risks.
+- **Scenarios:** turn each chosen tour or heuristic into something a tester can do.
+- **What to capture:** observation types; logs, screenshots, or metrics; unexpected behavior, inconsistencies, or dead ends.
+- **Exit conditions:** when to stop or escalate, and what constitutes a useful result.
+
 ## Output Format
 
 ```markdown
-# Exploratory Test Charter - [Feature or Risk Area]
+# Exploratory Test Charter - <Feature or Risk Area>
 
-**Mission:** [What the session is trying to learn or break]
-**Timebox:** [Suggested timebox]
-**Focus:** [Primary focus area]
+**Timebox:** <Suggested timebox> · **Focus:** <Primary focus area>
+
+> **Mission:** <One sentence: what the session is trying to learn or break.>
 
 ## Target Risks
-- [Risk]
-- [Risk]
-- [Risk]
+- <Risk most likely to hurt users>
 
-## Test Setup
-- [Environment]
-- [Accounts, data, or devices]
-- [Required tools or observability]
+## Setup
+- <Environment, accounts, data, devices, or tools>
 
-## Suggested Tours and Heuristics
-- [Tour or heuristic]
-- [Tour or heuristic]
-- [Tour or heuristic]
-
-## Charter Scenarios
-1. [Scenario]
-2. [Scenario]
-3. [Scenario]
+## Scenarios
+1. **<Tour or heuristic>:** <What to do and what to watch>
 
 ## What to Capture
-- [Observation type]
-- [Logs, screenshots, or metrics]
-- [Unexpected behavior, inconsistencies, or dead ends]
+- <Evidence: screenshots, payloads, logs, or notes>
 
-## Exit Conditions
-- [When to stop or escalate]
-- [What constitutes a useful result]
+## Stop When
+- <When to stop or escalate>
 ```
+
+### Limits
+
+- **One idea per bullet, about 20 words at most.** Name at most 3 things in a bullet. Do not pack a list of topics into one bullet to stay under a limit. Keep what matters most and name the rest in one line: `Left out: <topic>, <topic>.`.
+- **Every list:** 1–4 items, most important first, one line each.
+- **Scenarios:** name the tour or heuristic on the scenario that uses it, rather than listing them separately.
+- **Length:** about 250 words.
+- **No decorative emoji** in the title or headings.
 
 ## Output Rules
 
-- This is a single-shot generation: never ask follow-up questions or wait for more input. When a detail is missing, make a reasonable assumption and list it under an "Assumptions" note.
+- This is a single-shot generation: never ask follow-up questions or wait for more input, even where the instructions above say to ask. When a detail is missing, make a reasonable assumption and mark it `(assumed)` where it appears; do not add a separate assumptions section.
+- Start with a single H1 title, using the title format from the Output Format when it gives one.
 - Respond with the final Markdown document only — no preamble, no closing remarks, and do not wrap the whole response in a code block.

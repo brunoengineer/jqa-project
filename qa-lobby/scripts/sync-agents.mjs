@@ -8,14 +8,17 @@
 // Each generated prompt = the agent's role line + the shared guidance sections
 // it references + its task/output sections. Sections that only make sense in an
 // interactive chat tool ("If No Input Provided", "File Output") are dropped,
-// because QA Lobby always sends input and saves the output itself.
+// because QA Lobby always sends input and saves the output itself. "Chat Response"
+// becomes "Author Notes": in QA Lobby the response *is* the saved document, so the
+// hub's chat-only "Before you post" list goes at the end of it, below a divider.
 
 import fs from "node:fs/promises";
 import path from "node:path";
 
 // Agents that work as one-shot "text in → Markdown out" generations.
-// Excluded on purpose: write-tests, test-stability-check, automation-health-check
-// (they need direct access to a codebase or must execute tests).
+// Excluded on purpose: write-tests, test-stability-check, automation-health-check,
+// pr-description, slack-review-request (they need direct access to a codebase or
+// git repository, or must execute tests).
 const AGENTS = [
 	"jira-bug",
 	"bulk-jira-bugs",
@@ -33,6 +36,21 @@ const AGENTS = [
 
 const DROPPED_SECTIONS = [/^If No Input Provided/i, /File Output/i];
 
+// Rewrites for sections whose wording assumes a chat with a separate saved file.
+const SECTION_REWRITES = [
+	{
+		heading: /^Chat Response$/i,
+		rename: "Author Notes",
+		replace: [
+			[/ exactly as saved/g, ""],
+			[/\(chat only, not in the file\)/g, "at the end of the document, below a `---` line,"],
+		],
+	},
+];
+
+// If any of these survive the transform, the hub wording changed and this script needs updating.
+const FORBIDDEN_OUTPUT = [/\$ARGUMENTS/, /chat only/i, /not in the file/i, /qa-agent-hub\/response/i, /^## Chat Response/m];
+
 // Lines that conflict with how QA Lobby renders and stores output.
 const DROPPED_LINES = [
 	/Return the response in a (Markdown )?code block/i,
@@ -41,7 +59,8 @@ const DROPPED_LINES = [
 
 const LOBBY_RULES = `## Output Rules
 
-- This is a single-shot generation: never ask follow-up questions or wait for more input. When a detail is missing, make a reasonable assumption and list it under an "Assumptions" note.
+- This is a single-shot generation: never ask follow-up questions or wait for more input, even where the instructions above say to ask. When a detail is missing, make a reasonable assumption and mark it \`(assumed)\` where it appears; do not add a separate assumptions section.
+- Start with a single H1 title, using the title format from the Output Format when it gives one.
 - Respond with the final Markdown document only — no preamble, no closing remarks, and do not wrap the whole response in a code block.
 `;
 
@@ -50,14 +69,23 @@ function parseArgs(argv) {
 	return i >= 0 ? argv[i + 1] : undefined;
 }
 
-/** Split Markdown into top-level "## " sections, ignoring headings inside code fences. */
+/**
+ * Split Markdown into top-level "## " sections, ignoring headings inside code fences.
+ * Fences nest the CommonMark way: a fence opened with 4 backticks is only closed by a bare
+ * line of at least 4 backticks, so a ```mermaid block inside a ````markdown block is fine.
+ */
 function splitSections(markdown) {
 	const lines = markdown.replace(/\r\n/g, "\n").split("\n");
 	const sections = [{ heading: null, lines: [] }];
-	let inFence = false;
+	let fence = null; // { char, length } of the currently open fence
 	for (const line of lines) {
-		if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
-		const m = !inFence && line.match(/^## (.+?)\s*$/);
+		const f = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
+		if (f && !fence) {
+			fence = { char: f[1][0], length: f[1].length };
+		} else if (f && f[1][0] === fence.char && f[1].length >= fence.length && !f[2].trim()) {
+			fence = null;
+		}
+		const m = !fence && !f && line.match(/^## (.+?)\s*$/);
 		if (m) {
 			sections.push({ heading: m[1], lines: [line] });
 		} else {
@@ -69,6 +97,14 @@ function splitSections(markdown) {
 
 function sectionText(section) {
 	return section.lines.join("\n").trim();
+}
+
+function rewriteSection(section) {
+	const rule = SECTION_REWRITES.find((r) => r.heading.test(section.heading));
+	if (!rule) return section;
+	let text = section.lines.slice(1).join("\n");
+	for (const [re, to] of rule.replace) text = text.replace(re, to);
+	return { heading: rule.rename, lines: [`## ${rule.rename}`, ...text.split("\n")] };
 }
 
 function transformCommand(command, guidance) {
@@ -93,6 +129,7 @@ function transformCommand(command, guidance) {
 	const body = sections
 		.slice(1)
 		.filter((s) => !DROPPED_SECTIONS.some((re) => re.test(s.heading)))
+		.map(rewriteSection)
 		.map(sectionText)
 		.join("\n\n")
 		.replace(/When `\$ARGUMENTS` is provided, /g, "Using the input below, ")
@@ -132,7 +169,12 @@ async function main() {
 	for (const agent of AGENTS) {
 		const src = path.join(claudeDir, "commands", `${agent}.md`);
 		const command = await fs.readFile(src, "utf8");
-		await fs.writeFile(path.join(outDir, `${agent}.md`), transformCommand(command, guidance), "utf8");
+		const prompt = transformCommand(command, guidance);
+		const leftover = FORBIDDEN_OUTPUT.find((re) => re.test(prompt));
+		if (leftover) {
+			throw new Error(`${agent}: chat/file-specific wording survived the transform (${leftover}); update sync-agents.mjs`);
+		}
+		await fs.writeFile(path.join(outDir, `${agent}.md`), prompt, "utf8");
 		console.log(`✓ ${agent}`);
 	}
 	console.log(`\nSynced ${AGENTS.length} agents from ${hub}`);
